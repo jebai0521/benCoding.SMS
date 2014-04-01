@@ -8,6 +8,7 @@
 #import "BencodingSmsSMSDialogProxy.h"
 #import "TiUtils.h"
 #import "TiApp.h"
+#import "TiBlob.h"
 
 BOOL lockPortrait = NO;
 BOOL statusBarHiddenCheck = NO;
@@ -40,27 +41,38 @@ BOOL statusBarHiddenOldValue = NO;
 
 @implementation BencodingSmsSMSDialogProxy
 
-@synthesize canSendText;
+@synthesize canSendText = _canSendText;
+@synthesize canSendAttachment = _canSendAttachment;
+
 -(id)init
 {
     if (self = [super init])
     {
         showAnimated=YES;
         BOOL deviceCanSend = YES;
+        BOOL canSendAttachment = YES;
         Class messageClass = (NSClassFromString(@"MFMessageComposeViewController"));
         if (messageClass == nil)
         {
-            deviceCanSend=NO;
-        }else
+            deviceCanSend = NO;
+            canSendAttachment = NO;
+        }
+        else
         {
             //Check if we have support
             if([MFMessageComposeViewController canSendText]==NO)
             {
                 deviceCanSend=NO;
-            }        
-        }        
+            }
+            
+            if([MFMessageComposeViewController canSendAttachments]==NO)
+            {
+                canSendAttachment=NO;
+            }
+        }
         //Set a property so that we know if we can send a text message
-        canSendText=NUMBOOL(deviceCanSend);
+        _canSendText=NUMBOOL(deviceCanSend);
+        _canSendAttachment=NUMBOOL(canSendAttachment);
     
     }
     
@@ -90,6 +102,7 @@ BOOL statusBarHiddenOldValue = NO;
 {
     showAnimated=YES; //Force reset in case dev wants to toggle
     BOOL deviceCanSend = YES;
+    BOOL canSendAttachment = YES;
     
     //Reset our flags in case we are calling many times with different values
     [self resetFlags];
@@ -108,7 +121,11 @@ BOOL statusBarHiddenOldValue = NO;
         {
             deviceCanSend=NO;
         }
-    
+        
+        if([MFMessageComposeViewController canSendAttachments]==NO)
+        {
+            canSendAttachment=NO;
+        }
     }
 
     if(deviceCanSend==NO)
@@ -177,6 +194,20 @@ BOOL statusBarHiddenOldValue = NO;
         [[smsComposer navigationBar] setTintColor:barColor]; 
     }
 
+    TiBlob* blob = [self valueForUndefinedKey:@"image"];
+    
+    NSString * imageName = [TiUtils stringValue:[self valueForUndefinedKey:@"imageName"]];
+    
+    NSLog(@"============MingChen===========> blob is %@", blob);
+    
+    if (blob && canSendAttachment) {
+        
+        NSLog(@"============MingChen===========> type is %d", blob.type);
+        
+        NSLog(@"============MingChen===========> image is %@", blob.image);
+        
+        [smsComposer addAttachmentData:UIImageJPEGRepresentation(blob.image, 1.0) typeIdentifier:@"public.image" filename:(imageName ? imageName : @"cardface.png")];
+    }
 
     //If we are hiding the statusbar we need to do it after it is presented
     if(statusBarHidden==YES)
